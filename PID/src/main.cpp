@@ -15,11 +15,18 @@ using namespace vex;
 competition Competition;
 brain Brain;
 
-inertial spin = inertial (PORT1);
+inertial spin = inertial (PORT4);
 
 //motors
-motor lMotor = motor(PORT2);
-motor rMotor = motor(PORT3);
+motor RF = motor(PORT8, ratio6_1);
+motor RM = motor(PORT9, ratio6_1);
+motor RB = motor(PORT10, ratio6_1);
+motor LF = motor(PORT3, ratio6_1, true);
+motor LM = motor(PORT2, ratio6_1, true);
+motor LB = motor(PORT1, ratio6_1, true);
+
+motor_group rALL = motor_group(RF, RM, RB);
+motor_group lALL = motor_group(LF, LM, LB);
 
 // define your global instances of motors and other devices here
 
@@ -66,24 +73,25 @@ if (rTurn<0){
   rTurn+=360;
 }
 //how much degrees you need to turn locally
-float turnDistance = 0;
+float turnDirection = 0;
 //find most efficent path
 if (rTurn<lTurn){
-  turnDistance=rTurn;
+  turnDirection=1;
 }
 else{
-  turnDistance=-lTurn;
+  turnDirection=-1;
 }
 //check if we are close enough to stop (tolerance
 if(currentHeading<=target+turnTolerance and currentHeading >= target-turnTolerance){
-  rMotor.stop();
-  lMotor.stop();
+  rALL.stop(hold);
+  lALL.stop(hold);
   break; //out of while loop
 }
+else
 //spin motors
-rMotor.spin(reverse, 20, pct); //lower speed
-lMotor.spin(fwd,20,pct);
-
+{ rALL.spin(reverse, 20*turnDirection, pct); //lower speed
+lALL.spin(fwd,20*turnDirection,pct);
+}
 wait(20,msec);
   }
 
@@ -91,9 +99,9 @@ wait(20,msec);
 
 
 //k: turning values
-float kP=0; //potential, speed up if there is a longer distance, slow down if shorter
+float kP=0.15; //potential, speed up if there is a longer distance, slow down if shorter (.0655 is within tolerace)
 float kI=0; //intergral, not used in turning (keep in 0), faster based on distance travelled
-float kD=0; //Derivative, smooth stop, based on speed, faster if high speed
+float kD=1; //Derivative, smooth stop, based on speed, faster if high speed
 
 void turnPID(float target){ //target: set turning amount , global on global frame
  float turnIntegral =0; //PID, total distance travelled
@@ -121,17 +129,19 @@ else{
 }
 //check if we are close enough to stop (tolerance
 if(currentHeading<=target+turnTolerance and currentHeading >= target-turnTolerance){
-  rMotor.stop();
-  lMotor.stop();
+  rALL.stop(brake);
+  lALL.stop(brake);
   break; //out of while loop
 }
 
 //PID calculations:
 float turnDerivative=turnDistance-prevTurnDist;
-float turnSpeed=(kP*turnDistance)+(kI)+(kD*turnDerivative); 
+turnIntegral += turnDistance;
+float turnSpeed=(kP*turnDistance)+(kI*turnIntegral)+(kD*turnDerivative); 
+
 //spin motors
-rMotor.spin(reverse, turnSpeed, volt); 
-lMotor.spin(fwd,turnSpeed,volt); //use volt bc reduce strain on vex brain
+rALL.spin(reverse, turnSpeed, volt); 
+lALL.spin(fwd,turnSpeed,volt); //use volt bc reduce strain on vex brain
 //update the prev dist
 prevTurnDist=turnDistance;
 wait(10,msec);
@@ -143,7 +153,9 @@ wait(10,msec);
 void autonomous(void) {
 waitUntil(spin.isCalibrating()==false); // wait for it to stop calibrating
 spin.setHeading(0,deg);
-turnNoPID(10);
+// turnNoPID(270);
+
+turnPID(100);
 }
 
 /*---------------------------------------------------------------------------*/
@@ -178,8 +190,8 @@ void usercontrol(void) {
 //
 int main() {
   // Set up callbacks for autonomous and driver control periods.
-  Competition.autonomous(autonomous);
-  Competition.drivercontrol(usercontrol);
+  Competition.autonomous(usercontrol);
+  Competition.drivercontrol(autonomous);
 
   // Run the pre-autonomous function.
   pre_auton();
