@@ -97,7 +97,6 @@ wait(20,msec);
 
 }
 
-
 //k: turning values
 float kP=0.15; //potential, speed up if there is a longer distance, slow down if shorter (.0655 is within tolerace)
 float kI=0; //intergral, not used in turning (keep in 0), faster based on distance travelled
