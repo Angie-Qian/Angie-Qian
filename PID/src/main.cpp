@@ -8,6 +8,7 @@
 /*----------------------------------------------------------------------------*/
 
 #include "vex.h"
+#include <algorithm>
 
 using namespace vex;
 
@@ -101,7 +102,7 @@ wait(20,msec);
 float kP=0.15; //potential, speed up if there is a longer distance, slow down if shorter (.0655 is within tolerace)
 float kI=0; //intergral, not used in turning (keep in 0), faster based on distance travelled
 float kD=1; //Derivative, smooth stop, based on speed, faster if high speed
-
+ float voltageMin = .72;
 void turnPID(float target){ //target: set turning amount , global on global frame
  float turnIntegral =0; //PID, total distance travelled
  float prevTurnDist=0;
@@ -136,14 +137,19 @@ if(currentHeading<=target+turnTolerance and currentHeading >= target-turnToleran
 //PID calculations:
 float turnDerivative=turnDistance-prevTurnDist;
 turnIntegral += turnDistance;
-float turnSpeed=(kP*turnDistance)+(kI*turnIntegral)+(kD*turnDerivative); 
-
+float turnSpeed=0; //use it if bigger than one, if not, use 1
+if (turnDistance >0) {
+  turnSpeed=std::max((float)voltageMin,(kP*turnDistance)+(kI*turnIntegral)+(kD*turnDerivative));
+}
+else if (turnDistance<0){
+  turnSpeed=std::min((float)-voltageMin,(kP*turnDistance)+(kI*turnIntegral)+(kD*turnDerivative));
+}
 //spin motors
 rALL.spin(reverse, turnSpeed, volt); 
 lALL.spin(fwd,turnSpeed,volt); //use volt bc reduce strain on vex brain
 //update the prev dist
 prevTurnDist=turnDistance;
-wait(10,msec);
+wait(15,msec);
   }
 
 }
@@ -154,7 +160,13 @@ waitUntil(spin.isCalibrating()==false); // wait for it to stop calibrating
 spin.setHeading(0,deg);
 // turnNoPID(270);
 
-turnPID(100);
+turnPID(270);
+turnPID(90);
+turnPID(30);
+turnPID(120);
+turnPID(180);
+lALL.stop(coast);
+rALL.stop(coast);
 }
 
 /*---------------------------------------------------------------------------*/
